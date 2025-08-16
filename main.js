@@ -680,8 +680,11 @@ async function main() {
     yaw = 0;
   let isPointerLocked = false;
 
-  // Camera position - start further back to see the scene
-  let cameraPosition = [0, -2, 5];
+  // Initial camera position variable
+  const initialCameraPosition = [0, 0, -5.0];
+
+  // Camera position - start at initial position
+  let cameraPosition = [...initialCameraPosition];
 
   // Movement speed settings
   const moveSpeed = 0.1;
