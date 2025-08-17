@@ -1003,11 +1003,21 @@ function initFileSelector() {
     }
 
     // Handle screenshot card clicks
-    screenshotCards.forEach((card, index) => {
+    screenshotCards.forEach((card) => {
       card.addEventListener("click", function () {
+        // Remove selected class from all cards
+        screenshotCards.forEach((c) => c.classList.remove("selected"));
+        // Add selected class to clicked card
+        card.classList.add("selected");
+
         if (welcomeSelect) {
-          // Set select to corresponding file (just use index for demo)
-          welcomeSelect.value = index % splatFiles.length;
+          // Get the file from data-file attribute
+          const fileName = card.getAttribute("data-file");
+          // Find the index of this file in the splatFiles array
+          const fileIndex = splatFiles.indexOf(fileName);
+          if (fileIndex !== -1) {
+            welcomeSelect.value = fileIndex;
+          }
         }
       });
     });
@@ -1019,6 +1029,28 @@ function initFileSelector() {
         const url = new URL(window.location);
         url.searchParams.set("file", selectedIndex);
         window.location = url.toString();
+      });
+    }
+
+    // Also update selected card when dropdown changes
+    if (welcomeSelect) {
+      welcomeSelect.addEventListener("change", function () {
+        const selectedFile = splatFiles[this.value];
+        screenshotCards.forEach((card) => {
+          if (card.getAttribute("data-file") === selectedFile) {
+            card.classList.add("selected");
+          } else {
+            card.classList.remove("selected");
+          }
+        });
+      });
+
+      // Set initial selection based on dropdown
+      const initialFile = splatFiles[welcomeSelect.value];
+      screenshotCards.forEach((card) => {
+        if (card.getAttribute("data-file") === initialFile) {
+          card.classList.add("selected");
+        }
       });
     }
   } else {
