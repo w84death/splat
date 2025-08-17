@@ -14,6 +14,7 @@ const splatFiles = [
   "splat/impostor_clean.splat",
   "splat/sandbox.splat",
   "splat/sandbox_clean.splat",
+  "splat/kbd_clean.splat",
 ];
 
 // Make splatFiles available globally for the HTML file selector
