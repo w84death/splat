@@ -1,11 +1,19 @@
 // Array of available .splat files on the server
 const splatFiles = [
   "splat/kamien.splat",
-  // Add more .splat files here as needed
-  // Example: Add these files to your project directory and uncomment:
-  // "garden.splat",
-  // "bicycle.splat",
-  // "room.splat",
+  "splat/desk.splat",
+  "splat/flowers.splat",
+  "splat/hylux.splat",
+  "splat/hylux_clean.splat",
+  "splat/bikes.splat",
+  "splat/rock.splat",
+  "splat/posts.splat",
+  "splat/street-light.splat",
+  "splat/street-light_clean.splat",
+  "splat/impostor.splat",
+  "splat/impostor_clean.splat",
+  "splat/sandbox.splat",
+  "splat/sandbox_clean.splat",
 ];
 
 // Make splatFiles available globally for the HTML file selector
@@ -17,7 +25,7 @@ let cameras = [
     img_name: "00001",
     width: 1959,
     height: 1090,
-    position: [-3.0089893469241797, 0.11070002417020636, -3.7527640949141428],
+    position: [-2.0089893469241797, 0.11070002417020636, -2.7527640949141428],
     rotation: [
       [-0.9982591221282085, -0.02189508615715557, -0.057543624084392326],
       [0.0027761930814079344, -0.9370984970279224, 0.3490725881842409],
