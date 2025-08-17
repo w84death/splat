@@ -192,8 +192,12 @@ function createWorker(self) {
     self.postMessage({ texdata, texwidth, texheight }, [texdata.buffer]);
   }
 
+  let sortTimer = 0;
+  let sortInterval = 16; // Default minimum ms between sorts
+
   function runSort(viewProj) {
     if (!buffer) return;
+
     const f_buffer = new Float32Array(buffer);
     if (lastVertexCount == vertexCount) {
       let dot =
@@ -208,7 +212,6 @@ function createWorker(self) {
       lastVertexCount = vertexCount;
     }
 
-    console.time("sort");
     let maxDepth = -Infinity;
     let minDepth = Infinity;
     let sizeList = new Int32Array(vertexCount);
@@ -237,8 +240,6 @@ function createWorker(self) {
     depthIndex = new Uint32Array(vertexCount);
     for (let i = 0; i < vertexCount; i++)
       depthIndex[starts0[sizeList[i]]++] = i;
-
-    console.timeEnd("sort");
 
     lastProj = viewProj;
     self.postMessage({ depthIndex, viewProj, vertexCount }, [
@@ -517,14 +518,11 @@ async function main() {
   const fileIndex = parseInt(params.get("file")) || 0;
   const selectedFile = splatFiles[fileIndex] || splatFiles[0];
 
-  console.log(`Loading splat file: ${selectedFile} (index: ${fileIndex})`);
-
   const url = new URL(selectedFile, window.location.origin + "/");
   const req = await fetch(url, {
     mode: "cors", // no-cors, *cors, same-origin
     credentials: "omit", // include, *same-origin, omit
   });
-  console.log(req);
   if (req.status != 200)
     throw new Error(req.status + " Unable to load " + req.url);
 
@@ -532,9 +530,9 @@ async function main() {
   const reader = req.body.getReader();
   let splatData = new Uint8Array(req.headers.get("content-length"));
 
-  const downsample =
-    splatData.length / rowLength > 500000 ? 1 : 1 / devicePixelRatio;
-  console.log(splatData.length / rowLength, downsample);
+  // Adjust downsample based on splat count for better performance
+  const splatCount = splatData.length / rowLength;
+  const downsample = splatCount > 500000 ? 1 : 1 / devicePixelRatio;
 
   const worker = new Worker(
     URL.createObjectURL(
@@ -548,11 +546,25 @@ async function main() {
   const fps = document.getElementById("fps");
   const camid = document.getElementById("camid");
 
+  if (!canvas) {
+    throw new Error(
+      "Canvas element not found. Please ensure the page has loaded correctly.",
+    );
+  }
+
   let projectionMatrix;
 
   const gl = canvas.getContext("webgl2", {
     antialias: false,
+    powerPreference: "high-performance",
+    preserveDrawingBuffer: false,
   });
+
+  if (!gl) {
+    throw new Error(
+      "WebGL2 is not supported in this browser. Please use a modern browser with WebGL2 support.",
+    );
+  }
 
   const vertexShader = gl.createShader(gl.VERTEX_SHADER);
   gl.shaderSource(vertexShader, vertexShaderSource);
@@ -576,6 +588,9 @@ async function main() {
     console.error(gl.getProgramInfoLog(program));
 
   gl.disable(gl.DEPTH_TEST); // Disable depth testing
+
+  // Set clear color to transparent black
+  gl.clearColor(0.0, 0.0, 0.0, 0.0);
 
   // Enable blending
   gl.enable(gl.BLEND);
@@ -936,19 +951,29 @@ async function main() {
 // Initialize file selector
 function initFileSelector() {
   const select = document.getElementById("splat-select");
+  const welcomeSelect = document.getElementById("welcome-splat-select");
+
+  // Helper function to populate a select element
+  function populateSelect(selectElement) {
+    if (selectElement) {
+      selectElement.innerHTML = "";
+      splatFiles.forEach((filename, index) => {
+        const option = document.createElement("option");
+        option.value = index;
+        option.textContent = filename
+          .replace("splat/", "")
+          .replace(".splat", "");
+        selectElement.appendChild(option);
+      });
+    }
+  }
+
+  // Populate both selects
+  populateSelect(select);
+  populateSelect(welcomeSelect);
+
+  // Set selected option based on URL parameter for main select
   if (select) {
-    // Clear existing options
-    select.innerHTML = "";
-
-    // Populate with files from array
-    splatFiles.forEach((filename, index) => {
-      const option = document.createElement("option");
-      option.value = index;
-      option.textContent = filename;
-      select.appendChild(option);
-    });
-
-    // Set selected option based on URL parameter
     const params = new URLSearchParams(window.location.search);
     const currentFile = params.get("file") || "0";
     select.value = currentFile;
@@ -961,6 +986,66 @@ function initFileSelector() {
       window.location = url.toString();
     });
   }
+
+  // Handle welcome screen controls
+  const welcomeScreen = document.getElementById("welcome-screen");
+  const loadButton = document.getElementById("load-splat-button");
+  const screenshotCards = document.querySelectorAll(".screenshot-card");
+
+  // Check if we should show welcome screen
+  const params = new URLSearchParams(window.location.search);
+  const shouldShowWelcome = !params.has("file") && !params.has("url");
+
+  if (shouldShowWelcome) {
+    // Show welcome screen on first visit
+    if (welcomeScreen) {
+      welcomeScreen.classList.remove("hidden");
+    }
+
+    // Handle screenshot card clicks
+    screenshotCards.forEach((card, index) => {
+      card.addEventListener("click", function () {
+        if (welcomeSelect) {
+          // Set select to corresponding file (just use index for demo)
+          welcomeSelect.value = index % splatFiles.length;
+        }
+      });
+    });
+
+    // Handle load button click
+    if (loadButton && welcomeSelect) {
+      loadButton.addEventListener("click", function () {
+        const selectedIndex = welcomeSelect.value;
+        const url = new URL(window.location);
+        url.searchParams.set("file", selectedIndex);
+        window.location = url.toString();
+      });
+    }
+  } else {
+    // Hide welcome screen if we have a file parameter
+    if (welcomeScreen) {
+      welcomeScreen.classList.add("hidden");
+    }
+    // Ensure DOM is ready before starting
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => {
+        main().catch((err) => {
+          console.error("Error loading splat viewer:", err);
+          document.getElementById("spinner").style.display = "none";
+          document.getElementById("message").innerText =
+            `Error: ${err.toString()}`;
+        });
+      });
+    } else {
+      // Start loading the splat file
+      main().catch((err) => {
+        console.error("Error loading splat viewer:", err);
+        document.getElementById("spinner").style.display = "none";
+        document.getElementById("message").innerText =
+          `Error: ${err.toString()}`;
+      });
+    }
+  }
 }
 
 // Initialize when DOM is loaded
@@ -970,8 +1055,5 @@ if (document.readyState === "loading") {
   initFileSelector();
 }
 
-main().catch((err) => {
-  console.error("Error loading splat viewer:", err);
-  document.getElementById("spinner").style.display = "none";
-  document.getElementById("message").innerText = `Error: ${err.toString()}`;
-});
+// Main initialization is handled by initFileSelector
+// No need to call main() here as it's already called when appropriate
